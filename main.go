@@ -11,7 +11,6 @@ import (
 	"os/signal"
 	"path/filepath"
 	"syscall"
-	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/keygen"
@@ -21,27 +20,29 @@ import (
 	"github.com/charmbracelet/wish/logging"
 
 	"github.com/longkun/ssh-blog/internal/blog"
+	"github.com/longkun/ssh-blog/internal/config"
 	"github.com/longkun/ssh-blog/internal/ui"
 )
 
 const (
-	defaultHost       = "0.0.0.0"
-	defaultPort       = 2222
-	defaultDir        = "posts"
-	defaultPagesDir   = "pages"
-	defaultWalineURL  = "https://waline-comments.happy365.day"
-	defaultWalinePath = "messages/index.html"
+	binaryName = "ssh-blog"
 )
 
-func defaultHostKeyPath() string {
-	if home, err := os.UserHomeDir(); err == nil {
-		return filepath.Join(home, ".ssh", "ssh-blog_hostkey")
+func defaultHostKeyPath(homeOverride string) string {
+	if homeOverride == "" {
+		if home, err := os.UserHomeDir(); err == nil {
+			homeOverride = home
+		}
 	}
-	return "ssh-blog_hostkey"
+	if homeOverride == "" {
+		return "ssh-blog_hostkey"
+	}
+	return filepath.Join(homeOverride, ".ssh", "ssh-blog_hostkey")
 }
 
 func main() {
 	var (
+		configPath string
 		host       string
 		port       int
 		posts      string
@@ -50,18 +51,42 @@ func main() {
 		keyPath    string
 		version    bool
 	)
-
-	flag.StringVar(&host, "host", defaultHost, "address to listen on")
-	flag.IntVar(&port, "port", defaultPort, "port to listen on")
-	flag.StringVar(&posts, "posts", defaultDir, "directory containing markdown posts")
-	flag.StringVar(&pagesDir, "pages", defaultPagesDir, "directory containing static pages (about.md, friends.md, …)")
-	flag.StringVar(&walineURL, "waline", defaultWalineURL, "waline API base URL for the message board")
-	flag.StringVar(&keyPath, "key", defaultHostKeyPath(), "path to SSH host key (default: ~/.ssh/ssh-blog_hostkey)")
+	flag.StringVar(&configPath, "config", "", "path to config.yaml (default: ./config.yaml or ~/.config/ssh-blog/config.yaml)")
+	flag.StringVar(&host, "host", "", "address to listen on (overrides config)")
+	flag.IntVar(&port, "port", 0, "port to listen on (overrides config)")
+	flag.StringVar(&posts, "posts", "", "directory containing markdown posts (overrides config)")
+	flag.StringVar(&pagesDir, "pages", "", "directory containing static pages (overrides config)")
+	flag.StringVar(&walineURL, "waline", "", "waline API base URL (overrides config; empty disables)")
+	flag.StringVar(&keyPath, "key", "", "path to SSH host key (overrides config)")
 	flag.BoolVar(&version, "version", false, "print version and exit")
 	flag.Parse()
 
+	cfg, err := config.Load(configPath)
+	if err != nil {
+		log.Fatalf("load config: %v", err)
+	}
+
+	if host == "" {
+		host = cfg.Server.DefaultHost
+	}
+	if port == 0 {
+		port = cfg.Server.DefaultPort
+	}
+	if posts == "" {
+		posts = cfg.Server.DefaultPostsDir
+	}
+	if pagesDir == "" {
+		pagesDir = cfg.Server.DefaultPagesDir
+	}
+	if keyPath == "" {
+		keyPath = defaultHostKeyPath("")
+	}
+	if walineURL == "" {
+		walineURL = cfg.Waline.BaseURL
+	}
+
 	if version {
-		fmt.Println("ssh-blog 0.2.0")
+		fmt.Println(cfg.Site.Version)
 		return
 	}
 
@@ -86,7 +111,7 @@ func main() {
 		wish.WithAddress(net.JoinHostPort(host, fmt.Sprintf("%d", port))),
 		wish.WithHostKeyPEM(hostKey),
 		wish.WithMiddleware(
-			bubbletea.Middleware(teaHandler(absPosts, absPages, walineURL)),
+			bubbletea.Middleware(teaHandler(cfg, absPosts, absPages, walineURL)),
 			logging.Middleware(),
 		),
 	)
@@ -96,7 +121,7 @@ func main() {
 
 	done := make(chan os.Signal, 1)
 	signal.Notify(done, os.Interrupt, syscall.SIGTERM)
-	log.Printf("ssh-blog listening on %s:%d, posts=%s, pages=%s", host, port, absPosts, absPages)
+	log.Printf(cfg.Server.ListenBanner, host, port, absPosts, absPages)
 	go func() {
 		if err := s.ListenAndServe(); err != nil && !errors.Is(err, ssh.ErrServerClosed) {
 			log.Fatalf("server error: %v", err)
@@ -104,13 +129,13 @@ func main() {
 	}()
 
 	<-done
-	log.Println("shutting down")
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	log.Println(cfg.Server.ShutdownMessage)
+	ctx, cancel := context.WithTimeout(context.Background(), cfg.Server.ShutdownTimeout)
 	defer cancel()
 	_ = s.Shutdown(ctx)
 }
 
-func teaHandler(postsDir, pagesDir, walineURL string) bubbletea.Handler {
+func teaHandler(cfg *config.Config, postsDir, pagesDir, walineURL string) bubbletea.Handler {
 	return func(s ssh.Session) (tea.Model, []tea.ProgramOption) {
 		posts, err := blog.LoadDir(postsDir)
 		if err != nil {
@@ -122,9 +147,18 @@ func teaHandler(postsDir, pagesDir, walineURL string) bubbletea.Handler {
 		}
 		var waline *blog.WalineClient
 		if walineURL != "" {
-			waline = blog.NewWalineClient(walineURL)
+			waline = blog.NewWalineClient(blog.WalineOptions{
+				BaseURL:  walineURL,
+				Timeout:  cfg.Waline.Timeout,
+				PageSize: cfg.Waline.PageSize,
+			})
 		}
-		return ui.New(ui.Config{Posts: posts, Pages: pages, Waline: waline}),
+		return ui.New(ui.Config{
+			Cfg:    cfg,
+			Posts:  posts,
+			Pages:  pages,
+			Waline: waline,
+		}),
 			[]tea.ProgramOption{tea.WithAltScreen()}
 	}
 }

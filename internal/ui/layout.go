@@ -5,10 +5,14 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
+
+	"github.com/longkun/ssh-blog/internal/config"
 )
 
+// Page slot indices. The order MUST match the nav config: home, archive,
+// friends, messages, about. Keep these stable so legacy page-int math (e.g.
+// archiveIdx handling) still works.
 const (
-	siteName = "ssh-blog"
 	pageHome = iota
 	pageArchive
 	pageFriends
@@ -16,85 +20,94 @@ const (
 	pageAbout
 )
 
+// pageCount is the number of built-in page slots. Slugs that come from the
+// nav config are mapped into these slots by index; custom slugs need
+// extended handling in the model layer.
+const pageCount = 5
+
 type NavItem struct {
 	Key   string
 	Label string
 	Page  int
+	Slug  string
 }
 
-func NavItems() []NavItem {
-	return []NavItem{
-		{Key: "1", Label: "首页", Page: pageHome},
-		{Key: "2", Label: "归档", Page: pageArchive},
-		{Key: "3", Label: "友链", Page: pageFriends},
-		{Key: "4", Label: "留言", Page: pageMessages},
-		{Key: "5", Label: "关于", Page: pageAbout},
+// NavItems builds the nav strip from the YAML config. Order in cfg.Nav
+// determines order of digit keys (1..5).
+func NavItems(cfgs []config.NavConfig) []NavItem {
+	if len(cfgs) == 0 {
+		return nil
 	}
-}
-
-func pageLabel(p int) string {
-	for _, n := range NavItems() {
-		if n.Page == p {
-			return n.Label
+	out := make([]NavItem, len(cfgs))
+	for i, n := range cfgs {
+		page := i
+		if page >= pageCount {
+			page = pageHome
 		}
+		out[i] = NavItem{Key: n.Key, Label: n.Label, Page: page, Slug: n.Slug}
 	}
-	return ""
+	return out
 }
 
-type FooterConfig struct {
-	Author  string
-	Copy    string
-	Beian   string
-	Kaiwang string // "开往" link
-	Shinian string // "十年之约" link
+// layoutDims collects the layout constants from config so call sites don't
+// have to read them off the config each time.
+type layoutDims struct {
+	contentMeasure   int
+	minContentWidth  int
+	maxContentWidth  int
+	outerPadding     int
+	minTerminalWidth int
+	narrowNavThresh  int
+	chromeHeight     int
+	minBodyHeight    int
+	minListHeight    int
 }
 
-var defaultFooter = FooterConfig{
-	Author:  "longkun",
-	Copy:    "© 2018-2026 ssh-blog",
-	Beian:   "萌ICP备 0000000 号",
-	Kaiwang: "https://开往.cn",
-	Shinian: "https://www.foreverblog.cn",
+func dimsFromConfig(lc config.LayoutConfig) layoutDims {
+	return layoutDims{
+		contentMeasure:   lc.ContentMeasure,
+		minContentWidth:  lc.MinContentWidth,
+		maxContentWidth:  lc.MaxContentWidth,
+		outerPadding:     lc.OuterPadding,
+		minTerminalWidth: lc.MinTerminalWidth,
+		narrowNavThresh:  lc.NarrowNavThresh,
+		chromeHeight:     lc.ChromeHeight,
+		minBodyHeight:    lc.MinBodyHeight,
+		minListHeight:    lc.MinListHeight,
+	}
 }
 
 // PageWidth returns the inner content width given a terminal width,
 // clamping to [MinContentWidth, MaxContentWidth]. The reading view and the
-// rest of the body share the same ContentMeasure so layouts line up.
-const (
-	ContentMeasure = 110
-	MinContentWidth = ContentMeasure
-	MaxContentWidth = ContentMeasure
-	OuterPadding    = 4
-)
-
-func PageWidth(terminalW int) int {
-	w := terminalW - OuterPadding*2
-	if w < MinContentWidth {
+// rest of the body share the same content measure so layouts line up.
+func PageWidth(terminalW int, d layoutDims) int {
+	w := terminalW - d.outerPadding*2
+	if w < d.minContentWidth {
 		w = terminalW
 	}
-	if w > MaxContentWidth {
-		w = MaxContentWidth
+	if w > d.maxContentWidth {
+		w = d.maxContentWidth
 	}
-	if w < 20 {
-		w = 20
+	if w < d.minTerminalWidth {
+		w = d.minTerminalWidth
 	}
 	return w
 }
 
-// ContentMeasureWidth returns the standard content column width for the given
-// terminal width. Caps at ContentMeasure on wide terminals; otherwise leaves
-// room for a 2-cell gutter on each side so the content stays centered.
-func ContentMeasureWidth(terminalW int) int {
-	if terminalW >= ContentMeasure+4 {
-		return ContentMeasure
+// ContentMeasureWidth returns the standard content column width for the
+// given terminal width. Caps at ContentMeasure on wide terminals; otherwise
+// leaves room for a 2-cell gutter on each side so the content stays centered.
+func ContentMeasureWidth(terminalW int, d layoutDims) int {
+	if terminalW >= d.contentMeasure+d.outerPadding {
+		return d.contentMeasure
 	}
-	return terminalW - 4
+	return terminalW - d.outerPadding
 }
 
 // ContentMeasurePad returns the horizontal padding needed to center a
-// ContentMeasure-wide block in a terminal of the given width.
-func ContentMeasurePad(terminalW int) int {
-	w := ContentMeasureWidth(terminalW)
+// content-measure-wide block in a terminal of the given width.
+func ContentMeasurePad(terminalW int, d layoutDims) int {
+	w := ContentMeasureWidth(terminalW, d)
 	if terminalW <= w {
 		return 0
 	}
@@ -102,32 +115,30 @@ func ContentMeasurePad(terminalW int) int {
 }
 
 // ContentBox returns the content rendered centered within the terminal width.
-
-func ContentBox(content string, terminalW int) string {
-	inner := PageWidth(terminalW)
-	if terminalW < MinContentWidth+OuterPadding*2 {
+func ContentBox(content string, terminalW int, d layoutDims) string {
+	inner := PageWidth(terminalW, d)
+	if terminalW < d.minContentWidth+d.outerPadding*2 {
 		return content
 	}
 	pad := (terminalW - inner) / 2
 	if pad < 0 {
 		pad = 0
 	}
-	// Wrap with terminal width so any line that exceeds it gets visually wrapped,
-	// but the height budget stays predictable.
 	return lipgloss.NewStyle().
 		Width(terminalW).
 		Padding(0, pad, 0, pad).
 		Render(content)
 }
 
-func TopBar(currentPage int, theme Theme, themeIdx, totalThemes int, width int) string {
+// TopBar renders the navigation bar. siteName and nav come from config.
+func TopBar(currentPage int, siteName string, nav []NavItem, theme Theme, themeIdx, totalThemes int, width int, hint string) string {
 	title := lipgloss.NewStyle().
 		Bold(true).
 		Foreground(theme.Primary).
 		Render(siteName)
 
 	var navParts []string
-	for _, n := range NavItems() {
+	for _, n := range nav {
 		label := fmt.Sprintf("%s %s", n.Key, n.Label)
 		if n.Page == currentPage {
 			navParts = append(navParts, lipgloss.NewStyle().
@@ -143,9 +154,8 @@ func TopBar(currentPage int, theme Theme, themeIdx, totalThemes int, width int) 
 				Render(label))
 		}
 	}
-	nav := lipgloss.NewStyle().Render(strings.Join(navParts, " "))
+	navStr := lipgloss.NewStyle().Render(strings.Join(navParts, " "))
 
-	// Compact theme hint for narrow terminals.
 	themeHint := lipgloss.NewStyle().
 		Foreground(theme.Muted).
 		Italic(true).
@@ -153,19 +163,21 @@ func TopBar(currentPage int, theme Theme, themeIdx, totalThemes int, width int) 
 
 	left := title
 	right := themeHint
+	if hint != "" {
+		right = hint + "  " + right
+	}
 	boxW := width - 2
 	if boxW < 20 {
 		boxW = 20
 	}
-	contentW := boxW - 2 // account for padding
+	contentW := boxW - 2
 
-	used := lipgloss.Width(left) + lipgloss.Width(nav) + lipgloss.Width(right) + 1
+	used := lipgloss.Width(left) + lipgloss.Width(navStr) + lipgloss.Width(right) + 1
 	gap := contentW - used
 	if gap < 1 {
-		// Try to fit by trimming nav key prefix when very narrow.
 		if width < 80 {
 			navParts = navParts[:0]
-			for _, n := range NavItems() {
+			for _, n := range nav {
 				if n.Page == currentPage {
 					navParts = append(navParts, lipgloss.NewStyle().
 						Bold(true).
@@ -178,16 +190,16 @@ func TopBar(currentPage int, theme Theme, themeIdx, totalThemes int, width int) 
 						Render(n.Label))
 				}
 			}
-			nav = lipgloss.NewStyle().Render(strings.Join(navParts, "·"))
+			navStr = lipgloss.NewStyle().Render(strings.Join(navParts, "·"))
 		}
-		used = lipgloss.Width(left) + lipgloss.Width(nav) + lipgloss.Width(right) + 1
+		used = lipgloss.Width(left) + lipgloss.Width(navStr) + lipgloss.Width(right) + 1
 		gap = contentW - used
 		if gap < 1 {
 			gap = 1
 		}
 	}
 
-	bar := left + strings.Repeat(" ", gap) + nav + " " + right
+	bar := left + strings.Repeat(" ", gap) + navStr + " " + right
 
 	return lipgloss.NewStyle().
 		Border(lipgloss.NormalBorder(), false, false, true, false).
@@ -196,10 +208,10 @@ func TopBar(currentPage int, theme Theme, themeIdx, totalThemes int, width int) 
 		Render(bar)
 }
 
-// Footer renders a compact 2-line footer (top border + content row) split into
-// three slots: left = author/copyright, center = beian + links, right = operation hints.
-func Footer(theme Theme, width int, hints string) string {
-	cfg := defaultFooter
+// Footer renders a compact 2-line footer (top border + content row) split
+// into three slots: left = author/copyright, center = beian + links,
+// right = operation hints.
+func Footer(theme Theme, width int, hints string, fc config.FooterConfig) string {
 	muted := lipgloss.NewStyle().Foreground(theme.Muted)
 	primary := lipgloss.NewStyle().Foreground(theme.Primary)
 
@@ -208,14 +220,17 @@ func Footer(theme Theme, width int, hints string) string {
 		boxW = 20
 	}
 
-	leftText := cfg.Author + " · " + cfg.Copy
-	centerText := cfg.Beian + " 开往 🚇 十年之约"
+	leftText := fc.Author + fc.CenterJoiner + fc.Copyright
+	sep := fc.Separator
+	if sep == "" {
+		sep = " / "
+	}
+	centerText := fc.Beian + sep + fc.KaiwangLabel + sep + fc.ShinianLabel
 
 	left := muted.Render(leftText)
 	center := muted.Render(centerText) + " " + primary.Render("")
 	right := muted.Render(hints)
 
-	// Detect if a single-line footer would overflow; if so use a two-line layout.
 	totalW := lipgloss.Width(left) + lipgloss.Width(center) + lipgloss.Width(right)
 	if totalW <= boxW {
 		slotW := boxW / 3
@@ -230,7 +245,6 @@ func Footer(theme Theme, width int, hints string) string {
 			Render(row)
 	}
 
-	// Narrow terminal: author+center on one line, hints on a second line.
 	line1 := left + " " + center
 	line1W := lipgloss.Width(line1)
 	if line1W > boxW {
@@ -278,11 +292,11 @@ func centerAlign(s string, w int) string {
 }
 
 // HelpBar renders a centered help line.
-func HelpBar(parts []string, theme Theme, width int) string {
+func HelpBar(parts []string, theme Theme, width int, d layoutDims) string {
 	sep := lipgloss.NewStyle().Foreground(theme.Muted).Render("  ")
 	styled := make([]string, len(parts))
 	for i, p := range parts {
 		styled[i] = lipgloss.NewStyle().Foreground(theme.Muted).Render(p)
 	}
-	return ContentBox(strings.Join(styled, sep), width)
+	return ContentBox(strings.Join(styled, sep), width, d)
 }

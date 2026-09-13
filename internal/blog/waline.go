@@ -10,28 +10,44 @@ import (
 )
 
 type WalineClient struct {
-	baseURL string
-	hc      *http.Client
+	baseURL  string
+	hc       *http.Client
+	pageSize int
 }
 
-func NewWalineClient(base string) *WalineClient {
+type WalineOptions struct {
+	BaseURL  string
+	Timeout  time.Duration
+	PageSize int
+}
+
+func NewWalineClient(opts WalineOptions) *WalineClient {
+	timeout := opts.Timeout
+	if timeout <= 0 {
+		timeout = 10 * time.Second
+	}
+	pageSize := opts.PageSize
+	if pageSize <= 0 {
+		pageSize = 50
+	}
 	return &WalineClient{
-		baseURL: strings.TrimRight(base, "/"),
-		hc:      &http.Client{Timeout: 10 * time.Second},
+		baseURL:  strings.TrimRight(opts.BaseURL, "/"),
+		hc:       &http.Client{Timeout: timeout},
+		pageSize: pageSize,
 	}
 }
 
 type WalineComment struct {
-	ObjectID  int64     `json:"objectId"`
-	Nick      string    `json:"nick"`
-	Comment   string    `json:"comment"`
-	Link      string    `json:"link"`
-	Avatar    string    `json:"avatar"`
-	InsertedAt time.Time `json:"insertedAt"`
-	Browser   string    `json:"browser"`
-	OS        string    `json:"os"`
-	Type      string    `json:"type"`
-	Children  []WalineComment `json:"children"`
+	ObjectID   int64           `json:"objectId"`
+	Nick       string          `json:"nick"`
+	Comment    string          `json:"comment"`
+	Link       string          `json:"link"`
+	Avatar     string          `json:"avatar"`
+	InsertedAt time.Time       `json:"insertedAt"`
+	Browser    string          `json:"browser"`
+	OS         string          `json:"os"`
+	Type       string          `json:"type"`
+	Children   []WalineComment `json:"children"`
 }
 
 type walineListResp struct {
@@ -50,7 +66,7 @@ func (c *WalineClient) List(path string) ([]WalineComment, error) {
 	if path == "" {
 		path = "/"
 	}
-	u := fmt.Sprintf("%s/comment?path=%s&pageSize=50", c.baseURL, url.QueryEscape(path))
+	u := fmt.Sprintf("%s/comment?path=%s&pageSize=%d", c.baseURL, url.QueryEscape(path), c.pageSize)
 	resp, err := c.hc.Get(u)
 	if err != nil {
 		return nil, fmt.Errorf("waline GET: %w", err)
@@ -75,9 +91,9 @@ type WalinePost struct {
 }
 
 type walinePostResp struct {
-	ErrNo  int            `json:"errno"`
-	ErrMsg string         `json:"errmsg"`
-	Data   WalineComment  `json:"data"`
+	ErrNo  int           `json:"errno"`
+	ErrMsg string        `json:"errmsg"`
+	Data   WalineComment `json:"data"`
 }
 
 func (c *WalineClient) Post(nick, mail, link, comment, urlPath string) error {

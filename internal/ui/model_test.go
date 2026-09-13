@@ -8,6 +8,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 
 	"github.com/longkun/ssh-blog/internal/blog"
+	"github.com/longkun/ssh-blog/internal/config"
 )
 
 func renderAt(m tea.Model, w, h int) string {
@@ -29,7 +30,11 @@ func loadSamplePosts(t *testing.T) []blog.Post {
 
 func newModel(t *testing.T) tea.Model {
 	pages, _ := blog.LoadPages("../../pages")
-	return New(Config{Posts: loadSamplePosts(t), Pages: pages})
+	return New(Config{
+		Cfg:   config.Default(),
+		Posts: loadSamplePosts(t),
+		Pages: pages,
+	})
 }
 
 func TestHomeHasNavAndLatest(t *testing.T) {
@@ -309,8 +314,9 @@ func TestContentWidthMatchesReading(t *testing.T) {
 			maxW = w
 		}
 	}
-	if maxW > ContentMeasure+8 {
-		t.Fatalf("home body content width %d exceeds %d+8 (should be ~%d)", maxW, ContentMeasure, ContentMeasure)
+	cm := config.Default().Layout.ContentMeasure
+	if maxW > cm+8 {
+		t.Fatalf("home body content width %d exceeds %d+8 (should be ~%d)", maxW, cm, cm)
 	}
 }
 
@@ -328,20 +334,18 @@ func isBorderLine(s string) bool {
 }
 
 func TestContentMeasureWidth(t *testing.T) {
+	dims := dimsFromConfig(config.Default().Layout)
 	cases := []struct {
 		term int
 		want int
 	}{
-		{200, 110},
-		{140, 110},
-		{120, 110},
-		{114, 110},
-		{113, 109},
-		{110, 106},
-		{84, 80},
+		{200, 90}, // well above cap → cap
+		{94, 90},  // exactly at cap (ContentMeasure + OuterPadding) → cap
+		{93, 89},  // just below cap → terminalW - OuterPadding
+		{84, 80},  // narrow terminal → terminalW - OuterPadding
 	}
 	for _, c := range cases {
-		if got := ContentMeasureWidth(c.term); got != c.want {
+		if got := ContentMeasureWidth(c.term, dims); got != c.want {
 			t.Errorf("ContentMeasureWidth(%d) = %d, want %d", c.term, got, c.want)
 		}
 	}

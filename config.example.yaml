@@ -1,0 +1,228 @@
+# ssh-blog configuration
+# All fields are optional; anything you omit falls back to the built-in default.
+# Priority at runtime: CLI flag > this file > built-in default.
+
+# ---------- Site identity (top bar + footer) ----------
+site:
+  name: "qiukui-note"                   # top-bar title
+  author: "qiukui-note"                 # footer left
+  copyright: "© 2018-2026 qiukui-note"  # footer left
+  beian: "萌ICP备 20249900 号"          # footer center
+  version: "ssh-blog 0.2.0"             # shown by --version
+  tagline: "靠兴趣发电的个人小站。"     # reserved for future use
+
+# ---------- Top-bar nav. Order matters (digit keys 1,2,3…). ----------
+# slug is the page-{slug}.md to load; leave blank for built-in pages
+# (home / archive / messages), set "friends" or "about" for static pages.
+nav:
+  - { key: "1", label: "首页",  slug: "" }
+  - { key: "2", label: "归档",  slug: "" }
+  - { key: "3", label: "友链",  slug: "friends" }
+  - { key: "4", label: "留言",  slug: "" }
+  - { key: "5", label: "关于",  slug: "about" }
+
+# ---------- Home (left/right two-column layout) ----------
+home:
+  title: "🏠 关于本站"
+  recent_title: "📰 最新文章"
+  recent_count: 10                         # how many latest posts to show
+  intro: |
+    靠兴趣发电的个人小站。
+
+    在算法推荐的时代，留一片安静的角落。
+
+    试试 `1-5` 切换页面，或按 `enter` 阅读最新文章。
+
+# ---------- Footer ----------
+footer:
+  author: "qiukui-note"
+  copyright: "© 2018-2026 qiukui-note"
+  beian: "萌ICP备 20249900 号"
+  kaiwang_url: "https://www.travellings.cn"
+  kaiwang_label: "开往"
+  shinian_url: "https://www.foreverblog.cn"
+  shinian_label: "十年之约"
+  separator: " / "                         # between beian / kaiwang / shinian
+  center_joiner: " · "                     # between author and copyright
+
+# ---------- Per-page titles ----------
+pages:
+  home:
+    title: "🏠 关于本站"
+  archive:
+    title: "📅 归档"
+  friends:
+    title: "🔗 友链"
+    slug: "friends"
+    empty: "暂无内容，请在 pages/friends.md 添加 Markdown"
+  about:
+    title: "👤 关于"
+    slug: "about"
+    empty: "暂无内容，请在 pages/about.md 添加 Markdown"
+  messages:
+    title: "💬 留言板"
+    compose_title: "✎ 我要留言"
+    compose_prompt: "[ enter ] 写留言"
+    sending: " 正在发送…\n"
+    empty: "还没有留言，留下第一条吧。"
+    loading: "正在加载留言…"
+    loading_alt: "加载留言中…"
+    not_configured: "（留言后端未配置，仅可本地填写，不会发送）"
+    error_not_configured: "留言后端未配置 (WALINE_URL 为空)"
+    validation_empty: "昵称和留言不能为空"
+    compose_hint: "tab 切换字段 · ↑/↓ 行 · ctrl+f/b 翻页 · enter 提交"
+    form:
+      - { label: "昵称 *",   placeholder: "昵称 *",         required: true,  limit: 32,  prompt: "> " }
+      - { label: "邮箱",     placeholder: "邮箱（可选）",    required: false, limit: 64,  prompt: "> " }
+      - { label: "主页",     placeholder: "主页（可选）",    required: false, limit: 128, prompt: "> " }
+      - { label: "留言内容", placeholder: "说点什么…（多行用 \\n）", required: true,  limit: 400, prompt: "> " }
+
+# ---------- Reader (post view) ----------
+reading:
+  title_prefix: "📖 "
+  toc_title: "📑 目录"
+  toc_min_width: 18
+  toc_max_width: 32
+  toc_ratio: 5                            # TOC width = contentW / ratio
+  article_min_width: 30
+
+# ---------- Search box ----------
+search:
+  placeholder: "搜索标题/标签/正文…"
+  prompt: "/ "
+  char_limit: 64
+
+# ---------- Operation hints (footer right slot) ----------
+hints:
+  reading: "↑/↓ 行 · ctrl+f/b 翻页 · esc 返回"
+  search: "输入搜索 · enter 确认 · esc"
+  composing: "tab 切换 · ctrl+f/b 翻页 · enter 提交"
+  submitting: "提交中… · esc 关闭"
+  home: "enter 阅读 · / 搜索 · 1-5 · T 主题 · q"
+  archive: "↑/↓ 选择 · enter 阅读 · 1-5 · T 主题 · q"
+  messages: "↑/↓ 滚动 · ctrl+f/b 翻页 · enter 留言 · esc"
+  fallback: "esc · T 主题 · 1-5 · q"
+
+# ---------- Post header meta (date / author / category / tags) ----------
+post:
+  date_format: "2006-01-02"
+  unknown_date: "unknown"
+  comment_time_format: "2006-01-02 15:04"
+  date_emoji: "📅"
+  author_emoji: "✍️"
+  category_emoji: "📂"
+  tag_emoji: "🏷️"
+  admin_marker: "★ "
+  comment_divider: "─"
+  comment_divider_len: 40
+
+# ---------- Waline message board ----------
+waline:
+  base_url: "https://waline-comments.happy365.day"
+  messages_path: "messages/index.html"
+  page_size: 50
+  timeout: 10s
+  cache_ttl: 30s
+  admin_type: "administrator"             # comment.type value to mark admin
+
+# ---------- Keybindings (all keys use Bubbletea key names) ----------
+keys:
+  quit: ["q", "ctrl+c"]
+  theme_cycle: ["T", "t"]
+  search: "/"
+  enter: "enter"
+  esc: "esc"
+  nav_digits: "12345"                     # digits used to jump to nav items
+  reading_back: ["q", "esc", "b"]
+  scroll_up: ["up", "k"]
+  scroll_down: ["down", "j"]
+  page_down: ["ctrl+f", "pgdown", "pagedown", "space"]
+  page_up: ["ctrl+b", "pgup", "pageup"]
+  top: ["home", "g"]
+  bottom: ["end", "G"]
+  toc_next: "n"
+  toc_prev: "p"
+  compose_next_field: "tab"
+  compose_prev_field: "shift+tab"
+  compose_submit: "enter"
+
+# ---------- Layout constants ----------
+layout:
+  content_measure: 90                    # target content column width
+  min_content_width: 90
+  max_content_width: 90
+  outer_padding: 4                        # terminal padding around content
+  min_terminal_width: 20
+  narrow_nav_threshold: 80                # below this, nav strips key prefix
+  chrome_height: 4                        # top bar + footer reserved height
+  min_body_height: 6
+  min_list_height: 4
+  min_viewport_width: 30
+  min_viewport_height: 3
+  min_reading_width: 60
+  home_gap: 6                             # fixed chrome around home columns
+  home_left_ratio: 3                      # left col = total / ratio
+  message_form_height: 7                  # reserved height when composing
+  gap: 4                                  # inner list width offset
+
+# ---------- Markdown renderer (glamour) ----------
+glamour:
+  style: "notty"                          # try: dark, light, notty, ascii, dracula
+  word_wrap_offset: 8                     # renderer width = pageWidth - offset
+  min_renderer_width: 30
+  enable_emoji: true
+
+# ---------- Themes (full list replaces the built-in set) ----------
+themes:
+  - name: "default"
+    primary: "#A076FF"
+    secondary: "#36D399"
+    accent: "#FF6BAD"
+    border: "#5C5C70"
+    muted: "#9A9AB0"
+    title: "#FAFAFA"
+    highlight: "#FF6BAD"
+    success: "#36D399"
+    error: "#FF6B6B"
+    nav_active: "#FFFFFF"
+    nav_inactive: "#9A9AB0"
+    page_title: "#A076FF"
+  - name: "solarized"
+    primary: "#3FA6FF"
+    secondary: "#A3D900"
+    accent: "#FFAA00"
+    border: "#7A9BAD"
+    muted: "#A6B5BB"
+    title: "#FDF6E3"
+    highlight: "#FF7733"
+    success: "#A3D900"
+    error: "#FF5555"
+    nav_active: "#FFFFFF"
+    nav_inactive: "#A6B5BB"
+    page_title: "#3FA6FF"
+  - name: "dracula"
+    primary: "#C792FF"
+    secondary: "#5DFA88"
+    accent: "#FF89D6"
+    border: "#7F8FBC"
+    muted: "#9098B8"
+    title: "#F8F8F2"
+    highlight: "#FF89D6"
+    success: "#5DFA88"
+    error: "#FF6E6E"
+    nav_active: "#FFFFFF"
+    nav_inactive: "#9098B8"
+    page_title: "#C792FF"
+
+# ---------- Server defaults (flags still win) ----------
+server:
+  default_host: "0.0.0.0"
+  default_port: 2222
+  default_posts_dir: "posts"
+  default_pages_dir: "pages"
+  shutdown_timeout: 5s
+  host_key_algorithm: "ed25519"
+  host_key_default_path: "~/.ssh/ssh-blog_hostkey"
+  listen_banner: "ssh-blog listening on %s:%d, posts=%s, pages=%s"
+  shutdown_message: "shutting down"
+  init_placeholder: "Initializing..."
