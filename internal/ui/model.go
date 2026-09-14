@@ -1106,13 +1106,7 @@ func (m Model) viewReading() string {
 	tocW := 0
 	leftBlock := ""
 	if len(m.toc) > 0 {
-		tocW = contentW / m.cfg.Reading.TOCRatio
-		if tocW < m.cfg.Reading.TOCMinWidth {
-			tocW = m.cfg.Reading.TOCMinWidth
-		}
-		if tocW > m.cfg.Reading.TOCMaxWidth {
-			tocW = m.cfg.Reading.TOCMaxWidth
-		}
+		tocW = m.homeColWidth()
 		leftBlock = m.renderTOC(tocW)
 	}
 
@@ -1164,6 +1158,7 @@ func (m Model) renderTOC(width int) string {
 		Render(m.cfg.Reading.TOCTitle)
 	var b strings.Builder
 	b.WriteString(header)
+	b.WriteString("\n\n")
 	for i, h := range m.toc {
 		style := lipgloss.NewStyle().Foreground(theme.Muted)
 		marker := "  "
@@ -1171,7 +1166,7 @@ func (m Model) renderTOC(width int) string {
 			marker = "▸ "
 			style = lipgloss.NewStyle().Foreground(theme.Highlight).Bold(true)
 		}
-		indent := strings.Repeat("  ", h.Level-1)
+		indent := strings.Repeat("  ", h.Level-2)
 		text := truncate(h.Text, width-4-len(indent)-2)
 		b.WriteString(style.Render(indent+marker+text) + "\n")
 	}

@@ -15,7 +15,8 @@ type Heading struct {
 	Anchor string
 }
 
-// ExtractTOC walks the markdown AST and returns h1/h2/h3 headings in order.
+// ExtractTOC walks the markdown AST and returns h2/h3 headings in order.
+// h1 (the post title) is excluded since it duplicates the article heading.
 // Content inside fenced code blocks is ignored (handled by the parser).
 func ExtractTOC(md string) []Heading {
 	src := []byte(md)
@@ -32,7 +33,7 @@ func ExtractTOC(md string) []Heading {
 			return ast.WalkContinue, nil
 		}
 		level := h.Level
-		if level > 3 {
+		if level < 2 || level > 3 {
 			return ast.WalkSkipChildren, nil
 		}
 		txt := headingText(h, src)

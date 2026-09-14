@@ -205,14 +205,14 @@ text
 #### not included
 `
 	toc := blog.ExtractTOC(md)
-	if len(toc) != 5 {
-		t.Fatalf("expected 5 headings (h4 skipped), got %d: %+v", len(toc), toc)
+	if len(toc) != 4 {
+		t.Fatalf("expected 4 headings (h1 and h4 skipped), got %d: %+v", len(toc), toc)
 	}
-	if toc[0].Level != 1 || toc[0].Text != "Title" {
+	if toc[0].Level != 2 || toc[0].Text != "Section A" {
 		t.Errorf("unexpected first heading: %+v", toc[0])
 	}
-	if toc[3].Level != 3 || toc[3].Text != "Other" {
-		t.Errorf("unexpected 4th heading: %+v", toc[3])
+	if toc[2].Level != 3 || toc[2].Text != "Other" {
+		t.Errorf("unexpected 3rd heading: %+v", toc[2])
 	}
 }
 

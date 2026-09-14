@@ -176,9 +176,6 @@ func loadOrGenerateHostKey(path string) ([]byte, error) {
 		if err != nil {
 			return nil, err
 		}
-		if err := kp.WriteKeys(); err != nil {
-			return nil, err
-		}
 		return kp.RawPrivateKey(), nil
 	}
 	kp, err := keygen.New("", keygen.WithKeyType(keygen.Ed25519))

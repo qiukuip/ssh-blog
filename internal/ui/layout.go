@@ -23,7 +23,7 @@ const (
 // pageCount is the number of built-in page slots. Slugs that come from the
 // nav config are mapped into these slots by index; custom slugs need
 // extended handling in the model layer.
-const pageCount = 5
+const pageCount = 10
 
 type NavItem struct {
 	Key   string
